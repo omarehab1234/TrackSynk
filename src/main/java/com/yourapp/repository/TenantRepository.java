@@ -21,6 +21,9 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
     // List companies by status (e.g. all ACTIVE or SUSPENDED tenants)
     List<Tenant> findByStatus(TenantStatus status);
 
+    // List active companies sorted alphabetically by name for the join stack
+    List<Tenant> findByStatusOrderByCompanyNameAsc(TenantStatus status);
+
     // Partial match for search ("acm" matches "Acme Corp")
     //List<Tenant> findByCompanyNameContainingIgnoreCase(String keyword);
 }

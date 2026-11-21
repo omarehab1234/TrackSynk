@@ -128,10 +128,23 @@
             body: JSON.stringify({ companyName }),
           });
 
-          const data = await response.json();
+          const rawText = await response.text();
+          let data = null;
+
+          if (rawText) {
+            try {
+              data = JSON.parse(rawText);
+            } catch (_) {
+              data = null;
+            }
+          }
 
           if (!response.ok) {
-            throw new Error(data.message || "Could not create company.");
+            const errorMsg =
+              (data && (data.message || data.error)) ||
+              rawText ||
+              "Could not create company.";
+            throw new Error(errorMsg);
           }
 
           message.textContent = "Company created successfully!";
@@ -139,7 +152,7 @@
 
           window.location.href = "/dashboard";
         } catch (error) {
-          message.textContent = error.message;
+          message.textContent = error.message || "Could not create company.";
           message.classList.add("error");
         } finally {
           button.disabled = false;

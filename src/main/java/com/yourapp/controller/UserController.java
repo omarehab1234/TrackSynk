@@ -13,9 +13,10 @@ import com.yourapp.dto.auth.RegisterRequest;
 import com.yourapp.model.entity.User;
 import com.yourapp.service.UserService;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
 
 @RestController
 @RequestMapping("/api/users")
@@ -37,11 +38,12 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
-            @Valid @RequestBody LoginRequest request) {
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
 
-        LoginResponse response = userService.login(request);
+        LoginResponse response = userService.login(request, httpRequest, httpResponse);
 
         return ResponseEntity.ok(response);
     }
-    
 }

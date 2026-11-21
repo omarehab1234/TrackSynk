@@ -1,4 +1,3 @@
-
 package com.yourapp.controller;
 
 import org.springframework.stereotype.Controller;
@@ -12,10 +11,13 @@ public class PageController {
         return "register";
     }
 
-
     @GetMapping("/login")
     public String loginPage() {
         return "login";
     }
 
+    @GetMapping("/dashboard")
+    public String dashboardPage() {
+        return "dashboard";
+    }
 }
