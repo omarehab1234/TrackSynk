@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
   <head>
     <meta charset="UTF-8" />
@@ -126,7 +126,7 @@
           if (response.ok) {
             message.style.color = "green";
             message.textContent = "Registration successful!";
-            form.reset();
+            window.location.href = "/login?registered=true";
           } else {
             const error = await response.text();
             message.style.color = "red";
