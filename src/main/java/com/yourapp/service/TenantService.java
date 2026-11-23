@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,10 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.yourapp.dto.company.CreateCompanyRequest;
 import com.yourapp.dto.company.JoinCompanyRequest;
 import com.yourapp.model.Tenant;
+import com.yourapp.model.entity.Department;
 import com.yourapp.model.entity.User;
 import com.yourapp.model.enums.Role;
 import com.yourapp.model.enums.TenantStatus;
 import com.yourapp.model.enums.UserStatus;
+import com.yourapp.repository.DepartmentRepository;
 import com.yourapp.repository.TenantRepository;
 import com.yourapp.repository.UserRepository;
 import com.yourapp.security.CustomUserDetails;
@@ -31,14 +34,17 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
+    private final DepartmentRepository departmentRepository;
     private final SecurityContextRepository securityContextRepository;
 
     public TenantService(
             TenantRepository tenantRepository,
             UserRepository userRepository,
+            DepartmentRepository departmentRepository,
             SecurityContextRepository securityContextRepository) {
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
+        this.departmentRepository = departmentRepository;
         this.securityContextRepository = securityContextRepository;
     }
 
@@ -129,6 +135,78 @@ public class TenantService {
         refreshSecurityContext(savedUser, httpRequest, httpResponse);
 
         return tenant;
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> getPendingJoinRequests(CustomUserDetails adminDetails) {
+        requireCompanyAdmin(adminDetails);
+        return userRepository.findByTenantIdAndRoleIsNull(adminDetails.getTenantId());
+    }
+
+    @Transactional
+    public User approveJoinRequest(
+            UUID targetUserId,
+            Role role,
+            UUID departmentId,
+            CustomUserDetails adminDetails) {
+        requireCompanyAdmin(adminDetails);
+
+        if (role == null) {
+            throw new IllegalArgumentException("Role is required to approve a join request");
+        }
+
+        UUID adminTenantId = adminDetails.getTenantId();
+
+        User applicant = userRepository.findByIdAndTenantId(targetUserId, adminTenantId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found in your company"));
+
+        if (applicant.getRole() != null) {
+            throw new IllegalStateException("User already has an assigned role");
+        }
+
+        if (departmentId != null) {
+            Department department = departmentRepository.findByIdAndTenantId(departmentId, adminTenantId)
+                    .orElseThrow(() -> new IllegalArgumentException("Selected department does not belong to your company"));
+            applicant.setDepartment(department);
+        } else {
+            applicant.setDepartment(null);
+        }
+
+        applicant.setRole(role);
+        applicant.setStatus(UserStatus.ACTIVE);
+
+        return userRepository.save(applicant);
+    }
+
+    @Transactional
+    public void denyJoinRequest(UUID targetUserId, CustomUserDetails adminDetails) {
+        requireCompanyAdmin(adminDetails);
+
+        User applicant = userRepository.findByIdAndTenantId(targetUserId, adminDetails.getTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found in your company"));
+
+        if (applicant.getRole() != null) {
+            throw new IllegalStateException("Cannot deny a user who already has an assigned role");
+        }
+
+        applicant.setTenantId(null);
+        applicant.setRole(null);
+        applicant.setDepartment(null);
+        applicant.setStatus(UserStatus.REJECTED);
+
+        userRepository.save(applicant);
+    }
+
+    private void requireCompanyAdmin(CustomUserDetails adminDetails) {
+        if (adminDetails == null || adminDetails.getUserId() == null) {
+            throw new IllegalStateException("Authenticated user details are missing");
+        }
+        if (adminDetails.getTenantId() == null) {
+            throw new IllegalStateException("Admin does not belong to a company");
+        }
+        if (!Role.COMPANY_ADMIN.name().equals(adminDetails.getRole())) {
+            throw new AccessDeniedException("Only COMPANY_ADMIN can perform this action");
+        }
     }
 
     private void refreshSecurityContext(
