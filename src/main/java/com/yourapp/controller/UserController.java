@@ -42,7 +42,13 @@ public class UserController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
 
-        LoginResponse response = userService.login(request, httpRequest, httpResponse);
+        System.out.println("LOGIN ENDPOINT REACHED");
+        System.out.println("Email received: " + request.getEmail());
+
+        LoginResponse response =
+                userService.login(request, httpRequest, httpResponse);
+
+        System.out.println("LOGIN SUCCESSFUL");
 
         return ResponseEntity.ok(response);
     }

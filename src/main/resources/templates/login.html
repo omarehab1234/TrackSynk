@@ -3,8 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>KPI SaaS - Login</title>
 
+    <!-- CSRF Protection -->
     <meta name="_csrf" th:content="${_csrf.token}" />
     <meta name="_csrf_header" th:content="${_csrf.headerName}" />
 
@@ -99,7 +101,13 @@
 
       <form id="loginForm">
         <label for="email">Email</label>
-        <input type="email" id="email" name="email" required autocomplete="email" />
+        <input
+          type="email"
+          id="email"
+          name="email"
+          required
+          autocomplete="email"
+        />
 
         <label for="password">Password</label>
         <input
@@ -116,7 +124,8 @@
       <p id="message" role="alert"></p>
 
       <div class="footer-link">
-        Don't have an account? <a href="/register">Create account</a>
+        Don't have an account?
+        <a href="/register">Create account</a>
       </div>
     </div>
 
@@ -125,7 +134,9 @@
       const submitBtn = document.getElementById("submitBtn");
       const message = document.getElementById("message");
 
+      // Handle registration and logout messages
       const params = new URLSearchParams(window.location.search);
+
       if (params.get("registered") === "true") {
         message.style.color = "green";
         message.textContent = "Account created. Please log in.";
@@ -134,9 +145,12 @@
         message.textContent = "You have been logged out.";
       }
 
+      // Extract error message from backend response
       async function extractErrorMessage(response) {
         const contentType = response.headers.get("content-type") || "";
+
         const rawText = await response.text();
+
         if (!rawText) {
           return "Invalid email or password.";
         }
@@ -144,21 +158,35 @@
         if (contentType.includes("application/json")) {
           try {
             const data = JSON.parse(rawText);
-            if (typeof data === "string") return data;
-            if (data.message) return data.message;
-            if (data.error && typeof data.error === "string") return data.error;
+
+            if (typeof data === "string") {
+              return data;
+            }
+
+            if (data.message) {
+              return data.message;
+            }
+
+            if (data.error && typeof data.error === "string") {
+              return data.error;
+            }
+
             if (data.errors && typeof data.errors === "object") {
               const firstError = Object.values(data.errors)[0];
-              if (firstError) return String(firstError);
+
+              if (firstError) {
+                return String(firstError);
+              }
             }
           } catch (_) {
-            // Fall back to plain text below
+            // Fall back to plain text
           }
         }
 
         return rawText;
       }
 
+      // Login request
       form.addEventListener("submit", async function (event) {
         event.preventDefault();
 
@@ -167,40 +195,60 @@
           password: document.getElementById("password").value,
         };
 
+        // Get CSRF token
         const csrfMeta = document.querySelector('meta[name="_csrf"]');
-        const csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
+
+        const csrfHeaderMeta = document.querySelector(
+          'meta[name="_csrf_header"]',
+        );
+
         const headers = {
           "Content-Type": "application/json",
         };
 
-        if (csrfMeta && csrfHeaderMeta && csrfMeta.content && csrfHeaderMeta.content) {
+        if (
+          csrfMeta &&
+          csrfHeaderMeta &&
+          csrfMeta.content &&
+          csrfHeaderMeta.content
+        ) {
           headers[csrfHeaderMeta.content] = csrfMeta.content;
         }
 
+        // Loading state
         submitBtn.disabled = true;
+
         message.style.color = "#374151";
         message.textContent = "Signing in...";
 
         try {
+          // Send request to Spring Boot REST API
           const response = await fetch("/api/users/login", {
             method: "POST",
-            headers,
+            headers: headers,
             body: JSON.stringify(payload),
           });
 
           if (response.ok) {
+            // Read successful response if available
             await response.json().catch(() => null);
+
             message.style.color = "green";
             message.textContent = "Login successful! Redirecting...";
-            window.location.href = "/choose";
+
+            // Navigate to company selection page
+            window.location.href = "/companies/choose";
           } else {
+            // Display backend error
             message.style.color = "red";
             message.textContent = await extractErrorMessage(response);
+
             submitBtn.disabled = false;
           }
         } catch (error) {
           message.style.color = "red";
           message.textContent = "Could not connect to the server.";
+
           submitBtn.disabled = false;
         }
       });
