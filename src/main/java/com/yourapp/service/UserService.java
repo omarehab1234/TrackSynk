@@ -14,7 +14,6 @@ import com.yourapp.dto.auth.LoginRequest;
 import com.yourapp.dto.auth.LoginResponse;
 import com.yourapp.dto.auth.RegisterRequest;
 import com.yourapp.model.entity.User;
-import com.yourapp.model.enums.UserStatus;
 import com.yourapp.repository.UserRepository;
 import com.yourapp.security.CustomUserDetails;
 
@@ -50,7 +49,6 @@ public class UserService {
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setStatus(UserStatus.ACTIVE);
 
         return userRepository.save(user);
     }
@@ -102,9 +100,9 @@ public class UserService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new RuntimeException("User account is not active");
-        }
+        // if (user.getStatus() != UserStatus.ACTIVE) {
+        //     throw new RuntimeException("User account is not active");
+        // }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Invalid email or password");

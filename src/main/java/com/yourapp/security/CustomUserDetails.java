@@ -10,6 +10,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.yourapp.model.entity.User;
+import com.yourapp.model.enums.UserStatus;
 
 public class CustomUserDetails implements UserDetails {
 
@@ -75,4 +76,20 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+    public UUID getId() {
+    return user.getId();
+    }
+
+    public String getFirstName() {
+        return user.getFirstName();
+    }
+
+    public String getLastName() {
+        return user.getLastName();
+    }
+
+    public UserStatus getStatus() {
+        return user.getStatus();
+    }
+
 }

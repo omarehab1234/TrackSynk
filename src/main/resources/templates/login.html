@@ -236,8 +236,9 @@
             message.style.color = "green";
             message.textContent = "Login successful! Redirecting...";
 
+            window.location.href = "/admin/dashboard";
             // Navigate to company selection page
-            window.location.href = "/companies/choose";
+            //window.location.href = "/companies/choose";
           } else {
             // Display backend error
             message.style.color = "red";

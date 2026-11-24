@@ -13,6 +13,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.yourapp.dto.auth.PendingJoinRequestResponse;
 import com.yourapp.dto.company.CreateCompanyRequest;
 import com.yourapp.dto.company.JoinCompanyRequest;
 import com.yourapp.model.Tenant;
@@ -114,11 +115,29 @@ public class TenantService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        if (user.getTenantId() != null) {
+        // 1. Check user's current status
+        if (user.getStatus() == UserStatus.PENDING) {
+            throw new IllegalStateException("You already have a pending request");
+        }
+
+        if (user.getStatus() == UserStatus.ACTIVE) {
             throw new IllegalStateException("You already belong to a company");
         }
 
-        String normalizedSlug = request.getSlug().trim().toLowerCase(Locale.ROOT);
+        // 2. Only users without a company can request to join
+        if (user.getTenantId() != null) {
+            throw new IllegalStateException("You already have a company assigned");
+        }
+
+        // 3. Validate the company slug
+        if (request == null || request.getSlug() == null
+                || request.getSlug().isBlank()) {
+            throw new IllegalArgumentException("Company slug is required");
+        }
+
+        String normalizedSlug = request.getSlug()
+                .trim()
+                .toLowerCase(Locale.ROOT);
 
         Tenant tenant = tenantRepository.findBySlug(normalizedSlug)
                 .orElseThrow(() -> new IllegalArgumentException("Company not found"));
@@ -127,20 +146,36 @@ public class TenantService {
             throw new IllegalStateException("Company is not active");
         }
 
+        // 4. Assign company, but keep user pending
         user.setTenantId(tenant.getId());
-        user.setRole(null); // Pending role assignment for MVP
-        user.setStatus(UserStatus.ACTIVE);
+        user.setRole(null);
+        user.setStatus(UserStatus.PENDING);
 
+        // 5. Save and refresh authentication
         User savedUser = userRepository.save(user);
+
         refreshSecurityContext(savedUser, httpRequest, httpResponse);
 
         return tenant;
     }
 
     @Transactional(readOnly = true)
-    public List<User> getPendingJoinRequests(CustomUserDetails adminDetails) {
+    public List<PendingJoinRequestResponse> getPendingJoinRequests(
+            CustomUserDetails adminDetails) {
+
         requireCompanyAdmin(adminDetails);
-        return userRepository.findByTenantIdAndRoleIsNull(adminDetails.getTenantId());
+
+        return userRepository
+                .findByTenantIdAndRoleIsNull(adminDetails.getTenantId())
+                .stream()
+                .map(user -> new PendingJoinRequestResponse(
+                        user.getId(),
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getEmail(),
+                        user.getStatus().name()
+                ))
+                .toList();
     }
 
     @Transactional

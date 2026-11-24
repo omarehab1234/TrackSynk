@@ -87,6 +87,7 @@
       .message {
         margin-top: 16px;
         font-size: 14px;
+        line-height: 1.5;
       }
       .error {
         color: #dc2626;
@@ -102,18 +103,21 @@
       }
     </style>
   </head>
+
   <body>
     <div class="card">
       <h1>Join a company</h1>
       <p>Select a company from the list below to join its workspace.</p>
 
       <div id="companyStack" class="company-stack">
-        <div class="empty-state">Loading companies...</div>
+        <div class="empty-state">Checking your account...</div>
       </div>
 
       <div id="message" class="message" role="alert"></div>
 
-      <p class="footer-link"><a th:href="@{/companies/choose}">Back</a></p>
+      <p class="footer-link">
+        <a th:href="@{/companies/choose}">Back</a>
+      </p>
     </div>
 
     <script>
@@ -142,20 +146,81 @@
 
       function setAllButtonsDisabled(disabled) {
         const buttons = stackContainer.querySelectorAll("button.join-btn");
-        buttons.forEach((btn) => {
-          btn.disabled = disabled;
+        buttons.forEach((btn) => (btn.disabled = disabled));
+      }
+
+      // Check the current user's account status.
+      async function getCurrentUser() {
+        const response = await fetch("/api/users/me", {
+          headers: { Accept: "application/json" },
         });
+
+        const { rawText, data } = await parseResponseBody(response);
+
+        if (!response.ok) {
+          throw new Error(
+            (data && (data.message || data.error)) ||
+              "Could not retrieve your account information.",
+          );
+        }
+
+        return data;
+      }
+
+      // Display the appropriate UI according to user status.
+      function renderStatus(status) {
+        stackContainer.innerHTML = "";
+
+        if (status === "PENDING") {
+          setMessage(
+            "Your request is pending. Please wait until the company admin approves your request.",
+            "error",
+          );
+          return false;
+        }
+
+        if (status === "ACTIVE") {
+          setMessage(
+            "You already belong to a company. You can access your dashboard.",
+            "success",
+          );
+
+          const dashboardBtn = document.createElement("button");
+          dashboardBtn.className = "join-btn";
+          dashboardBtn.textContent = "Go to Dashboard";
+
+          dashboardBtn.addEventListener("click", () => {
+            window.location.href = "/dashboard";
+          });
+
+          stackContainer.appendChild(dashboardBtn);
+          return false;
+        }
+
+        if (status === "REJECTED") {
+          setMessage(
+            "Your previous request was rejected. You can request to join another company.",
+            "error",
+          );
+        } else {
+          // null status: user has not requested to join a company.
+          setMessage("", "");
+        }
+
+        return true;
       }
 
       async function joinCompany(slug, buttonEl) {
         setMessage("", "");
         setAllButtonsDisabled(true);
+
         const originalText = buttonEl.textContent;
-        buttonEl.textContent = "Joining...";
+        buttonEl.textContent = "Requesting...";
 
         try {
           const csrfToken =
             document.querySelector('meta[name="_csrf"]').content;
+
           const csrfHeader = document.querySelector(
             'meta[name="_csrf_header"]',
           ).content;
@@ -173,15 +238,20 @@
 
           if (!response.ok) {
             const isHtml = rawText && rawText.trim().startsWith("<");
-            const errorMsg =
+
+            throw new Error(
               (data && (data.message || data.error)) ||
-              (!isHtml && rawText) ||
-              "Could not join company.";
-            throw new Error(errorMsg);
+                (!isHtml && rawText) ||
+                "Could not request to join company.",
+            );
           }
 
-          setMessage("Joined company successfully! Redirecting...", "success");
-          window.location.href = "/dashboard";
+          setMessage(
+            "Your request was submitted successfully. Redirecting...",
+            "success",
+          );
+
+          //window.location.href = "/companies/pending";
         } catch (error) {
           setMessage(error.message || "Could not join company.", "error");
           buttonEl.textContent = originalText;
@@ -214,6 +284,7 @@
           slug.textContent = company.slug ? `Slug: ${company.slug}` : "";
 
           info.appendChild(name);
+
           if (company.slug) {
             info.appendChild(slug);
           }
@@ -222,7 +293,10 @@
           btn.type = "button";
           btn.className = "join-btn";
           btn.textContent = "Join";
-          btn.addEventListener("click", () => joinCompany(company.slug, btn));
+
+          btn.addEventListener("click", () => {
+            joinCompany(company.slug, btn);
+          });
 
           item.appendChild(info);
           item.appendChild(btn);
@@ -232,6 +306,15 @@
 
       async function loadCompanies() {
         try {
+          // First check the user's status.
+          const user = await getCurrentUser();
+
+          const canJoin = renderStatus(user.status);
+
+          // Pending and active users cannot request another company.
+          if (!canJoin) return;
+
+          // Only users with null or rejected status reach this point.
           const response = await fetch("/api/companies", {
             method: "GET",
             headers: { Accept: "application/json" },
@@ -240,18 +323,18 @@
           const { rawText, data } = await parseResponseBody(response);
 
           if (!response.ok) {
-            const isHtml = rawText && rawText.trim().startsWith("<");
-            const errorMsg =
+            throw new Error(
               (data && (data.message || data.error)) ||
-              (!isHtml && rawText) ||
-              "Could not load companies.";
-            throw new Error(errorMsg);
+                rawText ||
+                "Could not load companies.",
+            );
           }
 
           renderCompanies(data);
         } catch (error) {
           stackContainer.innerHTML =
             '<div class="empty-state">Unable to load companies right now.</div>';
+
           setMessage(error.message || "Could not load companies.", "error");
         }
       }

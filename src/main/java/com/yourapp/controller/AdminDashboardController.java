@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.yourapp.dto.auth.PendingJoinRequestResponse;
 import com.yourapp.dto.department.DepartmentRequest;
 import com.yourapp.model.entity.Department;
 import com.yourapp.model.entity.User;
@@ -74,9 +75,12 @@ public class AdminDashboardController {
 
     @GetMapping("/api/admin/join-requests")
     @ResponseBody
-    public ResponseEntity<List<User>> getPendingJoinRequests(
+    public ResponseEntity<List<PendingJoinRequestResponse>> getPendingJoinRequests(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(tenantService.getPendingJoinRequests(userDetails));
+
+        return ResponseEntity.ok(
+                tenantService.getPendingJoinRequests(userDetails)
+        );
     }
 
     @PostMapping("/api/admin/join-requests/{userId}/approve")
