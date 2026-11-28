@@ -1,9 +1,18 @@
 package com.yourapp.model.entity;
 
+import java.time.LocalDate;
+
 import com.yourapp.model.base.TenantBaseEntity;
 import com.yourapp.model.enums.ObjectiveStatus;
-import jakarta.persistence.*;
-import java.time.LocalDate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "objectives")
@@ -23,11 +32,15 @@ public class Objective extends TenantBaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private ObjectiveStatus status = ObjectiveStatus.DRAFT;
+    private ObjectiveStatus status = ObjectiveStatus.UNCOMPLETED;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_objective_id")
+    private Objective parentObjective;
 
     // Null department means this is a company-wide objective.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
+    @JoinColumn(name = "department_id" , nullable = false)
     private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -35,7 +48,8 @@ public class Objective extends TenantBaseEntity {
     private User createdBy;
 
     public Objective() {}
-
+    public Objective getParentObjective() {return parentObjective;}
+    public void setParentObjective(Objective parentObjective) {this.parentObjective = parentObjective;}
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }

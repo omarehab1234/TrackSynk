@@ -15,13 +15,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.yourapp.dto.auth.ApproveJoinResponse;
+import com.yourapp.dto.auth.DenyJoinResponse;
 import com.yourapp.dto.auth.PendingJoinRequestResponse;
 import com.yourapp.dto.department.DepartmentRequest;
 import com.yourapp.model.entity.Department;
-import com.yourapp.model.entity.User;
 import com.yourapp.model.enums.Role;
 import com.yourapp.security.CustomUserDetails;
 import com.yourapp.service.DepartmentService;
+import com.yourapp.service.ExecutiveService;
 import com.yourapp.service.TenantService;
 
 import jakarta.validation.Valid;
@@ -32,12 +34,15 @@ public class AdminDashboardController {
 
     private final TenantService tenantService;
     private final DepartmentService departmentService;
+    private final ExecutiveService executiveService;
 
     public AdminDashboardController(
             TenantService tenantService,
-            DepartmentService departmentService) {
+            DepartmentService departmentService,
+            ExecutiveService executiveService) {
         this.tenantService = tenantService;
         this.departmentService = departmentService;
+        this.executiveService = executiveService;
     }
 
     public record ApproveJoinRequest(
@@ -46,8 +51,8 @@ public class AdminDashboardController {
             UUID departmentId
     ) {}
 
-    @GetMapping("/admin/dashboard")
-    public String adminDashboard(
+    @GetMapping("/choose/dashboard")
+    public String dashboard(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Model model) {
 
@@ -59,18 +64,39 @@ public class AdminDashboardController {
             return "redirect:/companies/choose";
         }
 
-        if (!Role.COMPANY_ADMIN.name().equals(userDetails.getRole())) {
-            return "redirect:/dashboard";
+        String role = userDetails.getRole();
+
+        if (Role.COMPANY_ADMIN.name().equals(role)) {
+
+            model.addAttribute("tenantId", userDetails.getTenantId());
+
+            model.addAttribute("assignableRoles", List.of(
+                    Role.EXECUTIVE,
+                    Role.DEPARTMENT_MANAGER,
+                    Role.EMPLOYEE
+            ));
+
+            return "company/AdminDashboard";
         }
 
-        model.addAttribute("tenantId", userDetails.getTenantId());
-        model.addAttribute("assignableRoles", List.of(
-                Role.EXECUTIVE,
-                Role.DEPARTMENT_MANAGER,
-                Role.EMPLOYEE
-        ));
+        if (Role.EXECUTIVE.name().equals(role)) {
+            model.addAttribute(
+                    "dashboard",
+                    executiveService.getDashboard(userDetails)
+            );
 
-        return "company/AdminDashboard";
+            return "company/ExecutiveDashboard";
+        }
+
+        if (Role.DEPARTMENT_MANAGER.name().equals(role)) {
+            return "company/DepartmentDashboard";
+        }
+
+        if (Role.EMPLOYEE.name().equals(role)) {
+            return "company/EmployeeDashboard";
+        }
+
+        return "redirect:/login";
     }
 
     @GetMapping("/api/admin/join-requests")
@@ -85,26 +111,34 @@ public class AdminDashboardController {
 
     @PostMapping("/api/admin/join-requests/{userId}/approve")
     @ResponseBody
-    public ResponseEntity<User> approveJoinRequest(
+    public ResponseEntity<ApproveJoinResponse> approveJoinRequest(
             @PathVariable UUID userId,
             @Valid @RequestBody ApproveJoinRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        User approvedUser = tenantService.approveJoinRequest(
+
+        tenantService.approveJoinRequest(
                 userId,
                 request.role(),
                 request.departmentId(),
                 userDetails
         );
-        return ResponseEntity.ok(approvedUser);
+
+        return ResponseEntity.ok(
+                new ApproveJoinResponse(userId, "Join request approved successfully")
+        );
     }
 
     @PostMapping("/api/admin/join-requests/{userId}/deny")
     @ResponseBody
-    public ResponseEntity<Void> denyJoinRequest(
+    public ResponseEntity<DenyJoinResponse> denyJoinRequest(
             @PathVariable UUID userId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
+
         tenantService.denyJoinRequest(userId, userDetails);
-        return ResponseEntity.noContent().build();
+
+        return ResponseEntity.ok(
+                new DenyJoinResponse(userId, "Join request denied successfully")
+        );
     }
 
     @GetMapping("/api/admin/departments")

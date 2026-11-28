@@ -1,5 +1,5 @@
 package com.yourapp.model.enums;
 
 public enum ObjectiveStatus {
-    DRAFT, ACTIVE, COMPLETED, CANCELLED
+    DRAFT, ACTIVE, COMPLETED, CANCELLED ,UNCOMPLETED, OVERDUE
 }

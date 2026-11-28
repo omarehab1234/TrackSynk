@@ -13,7 +13,7 @@ import com.yourapp.model.entity.KPI;
 
 // @Repository
 public interface KpiRepository extends JpaRepository<KPI, UUID> {
-
+    List<KPI> findAllByTenantId(UUID tenantId);
     // Safe single lookup (edit, delete, and attaching a KpiValue to its KPI)
     Optional<KPI> findByIdAndTenantId(UUID id, UUID tenantId);
 
